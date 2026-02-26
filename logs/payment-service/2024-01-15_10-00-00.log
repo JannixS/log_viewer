@@ -1,0 +1,19 @@
+2024-01-15 10:00:00.000 [main] INFO  c.example.PaymentServiceApplication - Starting PaymentServiceApplication v3.1.0
+2024-01-15 10:00:01.500 [main] INFO  c.example.config.StripeConfig - Stripe API client initialized
+2024-01-15 10:00:02.300 [main] INFO  c.example.PaymentServiceApplication - Started PaymentServiceApplication in 2.300 seconds
+2024-01-15 10:05:18.600 [http-nio-8082-exec-1] INFO  c.example.controller.PaymentController - POST /api/payments - Processing payment for order: ORD-00128
+2024-01-15 10:05:19.200 [http-nio-8082-exec-1] DEBUG c.example.service.PaymentService - Calling Stripe API: charges.create
+2024-01-15 10:05:19.900 [http-nio-8082-exec-1] INFO  c.example.service.PaymentService - Payment successful: charge_id=ch_3NxKD2LkdIwHu7ix
+2024-01-15 10:10:33.000 [http-nio-8082-exec-2] WARN  c.example.service.PaymentService - Card declined for order ORD-00129: insufficient_funds
+2024-01-15 10:10:33.100 [http-nio-8082-exec-2] INFO  c.example.controller.PaymentController - Payment declined - returning 402 to caller
+2024-01-15 10:15:00.000 [scheduler-1] INFO  c.example.scheduler.ReconciliationJob - Starting daily payment reconciliation
+2024-01-15 10:15:04.800 [scheduler-1] WARN  c.example.scheduler.ReconciliationJob - 2 transactions in PENDING state older than 1 hour
+2024-01-15 10:20:44.300 [http-nio-8082-exec-4] ERROR c.example.service.FraudDetectionService - Fraud detection service unreachable
+java.net.ConnectException: Connection refused: fraud-detection-svc:9090
+	at java.net.PlainSocketImpl.socketConnect(Native Method)
+	at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:399)
+	at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:242)
+Caused by: java.io.IOException: No route to host
+	at sun.nio.ch.Net.connect0(Native Method)
+2024-01-15 10:20:44.320 [http-nio-8082-exec-4] WARN  c.example.service.FraudDetectionService - Falling back to local rule engine (fraud-detection-svc unavailable)
+2024-01-15 10:30:00.000 [scheduler-1] INFO  c.example.scheduler.MetricsScheduler - Payments today: 23, declined: 1, errors: 1

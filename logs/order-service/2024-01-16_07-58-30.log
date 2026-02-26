@@ -1,0 +1,14 @@
+2024-01-16 07:58:30.001 [main] INFO  c.example.OrderServiceApplication - Starting OrderServiceApplication v2.3.1
+2024-01-16 07:58:31.442 [main] INFO  c.example.OrderServiceApplication - Started OrderServiceApplication in 1.841 seconds
+2024-01-16 08:02:11.300 [http-nio-8080-exec-1] INFO  c.example.controller.OrderController - POST /api/orders - Creating new order for user: user_9023
+2024-01-16 08:02:11.600 [http-nio-8080-exec-1] INFO  c.example.service.OrderService - Order created successfully: ORD-00132
+2024-01-16 08:10:05.800 [http-nio-8080-exec-3] WARN  c.example.service.CacheService - Cache miss rate exceeds threshold: 78%
+2024-01-16 08:15:22.000 [http-nio-8080-exec-4] ERROR c.example.repository.OrderRepository - Database query failed
+org.springframework.dao.DataAccessException: JDBC exception executing SQL [SELECT * FROM orders WHERE id = ?]
+	at org.springframework.jdbc.core.JdbcTemplate.execute(JdbcTemplate.java:654)
+	at c.example.repository.OrderRepository.findById(OrderRepository.java:78)
+	at c.example.service.OrderService.getOrder(OrderService.java:103)
+Caused by: java.sql.SQLException: Connection pool exhausted
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:213)
+2024-01-16 08:15:22.010 [http-nio-8080-exec-4] ERROR c.example.controller.OrderController - Internal server error processing GET /api/orders/ORD-00133
+2024-01-16 08:30:00.000 [scheduler-1] INFO  c.example.scheduler.MetricsScheduler - Orders processed today: 12, failed: 1

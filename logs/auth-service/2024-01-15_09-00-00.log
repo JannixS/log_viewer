@@ -1,0 +1,21 @@
+2024-01-15 09:00:00.000 [main] INFO  c.example.AuthServiceApplication - Starting AuthServiceApplication v1.8.4
+2024-01-15 09:00:01.234 [main] INFO  c.example.AuthServiceApplication - JWT secret loaded from environment
+2024-01-15 09:00:02.100 [main] INFO  c.example.AuthServiceApplication - Started AuthServiceApplication in 2.100 seconds
+2024-01-15 09:05:30.400 [http-nio-8081-exec-1] INFO  c.example.controller.AuthController - POST /auth/login - user: john.doe@example.com
+2024-01-15 09:05:30.620 [http-nio-8081-exec-1] DEBUG c.example.service.AuthService - Password hash comparison passed for user: john.doe@example.com
+2024-01-15 09:05:30.800 [http-nio-8081-exec-1] INFO  c.example.service.TokenService - Issued JWT token for user: john.doe@example.com, expires: 2024-01-15T17:05:30
+2024-01-15 09:10:44.000 [http-nio-8081-exec-2] WARN  c.example.service.AuthService - Failed login attempt for user: attacker@evil.com (attempt 3)
+2024-01-15 09:10:44.050 [http-nio-8081-exec-2] WARN  c.example.service.RateLimiter - IP 10.0.0.99 has exceeded login attempt threshold; applying rate limit
+2024-01-15 09:15:11.100 [http-nio-8081-exec-3] ERROR c.example.filter.JwtAuthFilter - Invalid JWT signature
+io.jsonwebtoken.SignatureException: JWT signature does not match locally computed signature. JWT validity cannot be asserted and should not be trusted.
+	at io.jsonwebtoken.impl.DefaultJwtParser.parse(DefaultJwtParser.java:354)
+	at io.jsonwebtoken.impl.DefaultJwtParser.parseClaimsJws(DefaultJwtParser.java:418)
+	at c.example.filter.JwtAuthFilter.doFilterInternal(JwtAuthFilter.java:67)
+2024-01-15 09:15:11.110 [http-nio-8081-exec-3] WARN  c.example.filter.JwtAuthFilter - Rejecting request with invalid token from IP: 10.0.0.99
+2024-01-15 09:20:00.000 [scheduler-1] INFO  c.example.scheduler.TokenCleanupJob - Removed 124 expired refresh tokens
+2024-01-15 09:30:00.000 [http-nio-8081-exec-5] INFO  c.example.controller.AuthController - POST /auth/logout - user: john.doe@example.com
+2024-01-15 09:45:12.500 [http-nio-8081-exec-6] ERROR c.example.service.UserService - User not found in database
+c.example.exception.UserNotFoundException: No user found with email: unknown@example.com
+	at c.example.service.UserService.loadUserByUsername(UserService.java:54)
+	at org.springframework.security.authentication.dao.DaoAuthenticationProvider.retrieveUser(DaoAuthenticationProvider.java:93)
+2024-01-15 09:45:12.510 [http-nio-8081-exec-6] INFO  c.example.controller.AuthController - Returning 401 for unknown user
