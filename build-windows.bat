@@ -13,7 +13,7 @@ if errorlevel 1 (
 )
 
 echo [2/3] Building standalone executable with PyInstaller...
-pyinstaller log_viewer.spec --noconfirm --clean
+python -m PyInstaller log_viewer.spec --noconfirm --clean
 
 echo [3/3] Done.
 echo.

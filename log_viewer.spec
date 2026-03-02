@@ -38,6 +38,7 @@ a = Analysis(
         "flask",
         "jinja2",
         "jinja2.ext",
+        "win32timezone",
     ],
     hookspath=[],
     hooksconfig={},
