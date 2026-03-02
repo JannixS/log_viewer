@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Java Log Viewer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0d1117;
+      --bg2:        #161b22;
+      --bg3:        #1c2230;
+      --bg4:        #21262d;
+      --border:     #30363d;
+      --border2:    #3d444d;
+      --accent:     #388bfd;
+      --accent-dim: #1f6feb22;
+      --text:       #e6edf3;
+      --text-dim:   #7d8590;
+      --text-muted: #484f58;
+      --trace:      #6e7681;
+      --debug:      #39c5cf;
+      --info:       #3fb950;
+      --warn:       #d29922;
+      --warn-bg:    #2a1f0a;
+      --error:      #f85149;
+      --error-bg:   #1f0a0a;
+      --fatal:      #ff7b72;
+      --sidebar-w:  260px;
+      --topbar-h:   48px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .layout { display: flex; height: 100vh; overflow: hidden; }
+
+    /* ── Topbar ── */
+    .topbar {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--topbar-h);
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; z-index: 100;
+    }
+    .topbar-brand {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 15px; font-weight: 700; color: var(--text);
+      text-decoration: none; white-space: nowrap;
+    }
+    .brand-icon {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, #388bfd, #58a6ff);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .topbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+    .topbar-breadcrumb {
+      flex: 1; display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-dim); overflow: hidden;
+    }
+    .topbar-breadcrumb .crumb { color: var(--text); font-weight: 500; }
+    .topbar-breadcrumb .sep   { color: var(--text-muted); }
+    .topbar-actions { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+    .icon-btn {
+      width: 30px; height: 30px;
+      background: none; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text-dim);
+      cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, color .15s;
+    }
+    .icon-btn:hover { background: var(--bg4); color: var(--text); }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: var(--sidebar-w); min-width: var(--sidebar-w);
+      height: 100vh; padding-top: var(--topbar-h);
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .sidebar-tabs {
+      display: flex; border-bottom: 1px solid var(--border); padding: 0 6px;
+    }
+    .sidebar-tabs button {
+      flex: 1; padding: 9px 4px;
+      background: none; border: none; border-bottom: 2px solid transparent;
+      color: var(--text-dim); cursor: pointer;
+      font-size: 11px; font-weight: 600; letter-spacing: .04em;
+      transition: color .15s, border-color .15s;
+    }
+    .sidebar-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab-panel { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .tab-panel.active { display: flex; }
+
+    .apps-filter { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    .apps-filter input {
+      width: 100%; padding: 6px 10px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 12px; outline: none;
+    }
+    .apps-filter input:focus { border-color: var(--accent); }
+    .apps-filter input::placeholder { color: var(--text-muted); }
+
+    .app-tree { flex: 1; overflow-y: auto; padding: 6px 0; }
+
+    .app-header {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 12px; cursor: pointer; user-select: none;
+      transition: background .1s;
+    }
+    .app-header:hover { background: var(--bg3); }
+    .app-header.open .chevron { transform: rotate(90deg); }
+    .app-icon { font-size: 13px; flex-shrink: 0; }
+    .app-label {
+      flex: 1; font-size: 12px; font-weight: 600; color: var(--text);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .app-count {
+      font-size: 10px; color: var(--text-muted);
+      background: var(--bg4); border-radius: 10px; padding: 1px 6px;
+    }
+    .chevron { color: var(--text-muted); font-size: 10px; transition: transform .2s; flex-shrink: 0; }
+
+    .file-list { display: none; padding: 2px 0 6px 0; }
+    .file-list.open { display: block; }
+
+    .file-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px 5px 30px; cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: background .1s, border-color .1s;
+    }
+    .file-item:hover { background: var(--bg3); }
+    .file-item.active { background: var(--accent-dim); border-left-color: var(--accent); }
+    .file-icon { font-size: 11px; flex-shrink: 0; color: var(--text-muted); }
+    .file-name {
+      flex: 1; font-size: 11.5px; color: var(--text-dim);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .file-item.active .file-name { color: var(--text); }
+    .file-size { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+
+    /* Search tab */
+    .search-panel { padding: 10px; display: flex; flex-direction: column; gap: 7px; border-bottom: 1px solid var(--border); }
+    .search-panel input, .search-panel select {
+      width: 100%; padding: 7px 10px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 12px; outline: none;
+    }
+    .search-panel input:focus, .search-panel select:focus { border-color: var(--accent); }
+    .search-panel input::placeholder { color: var(--text-muted); }
+    .btn-search {
+      padding: 8px; background: var(--accent); border: none;
+      border-radius: 6px; color: #fff; font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: filter .15s;
+    }
+    .btn-search:hover { filter: brightness(1.1); }
+
+    .search-results { flex: 1; overflow-y: auto; }
+    .sr-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 12px; }
+    .sr-summary { padding: 7px 12px; font-size: 11px; color: var(--text-dim); border-bottom: 1px solid var(--border); }
+    .sr-item {
+      padding: 9px 12px; cursor: pointer;
+      border-left: 2px solid transparent; border-bottom: 1px solid rgba(48,54,61,.5);
+      transition: background .1s;
+    }
+    .sr-item:hover { background: var(--bg3); border-left-color: var(--border2); }
+    .sr-app  { font-size: 10px; color: var(--text-muted); margin-bottom: 2px; }
+    .sr-file { font-size: 12px; font-weight: 600; color: var(--text); }
+    .sr-hits {
+      display: inline-block; margin-top: 3px;
+      font-size: 10px; font-weight: 700;
+      color: var(--warn); background: var(--warn-bg);
+      padding: 1px 7px; border-radius: 10px;
+    }
+    .sr-preview {
+      margin-top: 5px; font-size: 10.5px; color: var(--text-dim);
+      font-family: 'Consolas','Menlo',monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* ── Main ── */
+    .main {
+      flex: 1; padding-top: var(--topbar-h);
+      display: flex; flex-direction: column;
+      overflow: hidden; background: var(--bg);
+    }
+
+    /* Filter bar */
+    .filterbar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: var(--bg2); border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .filter-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .filterbar select, .filterbar input[type=text] {
+      padding: 5px 9px; height: 30px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--text); font-size: 12px; outline: none;
+    }
+    .filterbar select:focus, .filterbar input[type=text]:focus { border-color: var(--accent); }
+    .filterbar input[type=text] { min-width: 170px; }
+    .filterbar input[type=text]::placeholder { color: var(--text-muted); }
+    .fb-sep { width: 1px; height: 18px; background: var(--border); }
+    .btn {
+      height: 30px; padding: 0 14px;
+      border: none; border-radius: 6px;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      transition: filter .15s;
+    }
+    .btn-apply { background: var(--accent); color: #fff; }
+    .btn-apply:hover { filter: brightness(1.1); }
+    .btn-clear { background: var(--bg4); color: var(--text-dim); border: 1px solid var(--border); }
+    .btn-clear:hover { color: var(--text); }
+
+    /* Exception strip */
+    .exc-strip {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+      padding: 5px 14px;
+      background: var(--bg3); border-bottom: 1px solid var(--border);
+      min-height: 30px;
+    }
+    .exc-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .exc-pill {
+      display: inline-flex; align-items: center;
+      padding: 2px 9px; border-radius: 12px; font-size: 11px; cursor: pointer;
+      background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.25); color: var(--error);
+      transition: background .15s;
+    }
+    .exc-pill:hover { background: rgba(248,81,73,.2); }
+    .exc-pill.active { background: rgba(248,81,73,.25); border-color: rgba(248,81,73,.6); font-weight: 700; }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex; align-items: center; gap: 14px;
+      padding: 4px 14px;
+      background: var(--bg3); border-bottom: 1px solid var(--border);
+      font-size: 11px; color: var(--text-dim);
+    }
+    .stat { display: flex; align-items: center; gap: 5px; }
+    .level-stat {
+      display: inline-block; padding: 0 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em; line-height: 18px;
+    }
+    .ls-debug { background: rgba(57,197,207,.15);  color: var(--debug); }
+    .ls-info  { background: rgba(63,185,80,.15);   color: var(--info); }
+    .ls-warn  { background: rgba(210,153,34,.18);  color: var(--warn); }
+    .ls-error { background: rgba(248,81,73,.15);   color: var(--error); }
+
+    /* Log content */
+    .log-content { flex: 1; overflow: auto; }
+
+    .log-table {
+      width: 100%; border-collapse: collapse;
+      font-family: 'JetBrains Mono','Cascadia Code','Fira Code','Consolas','Menlo',monospace;
+      font-size: 12px;
+    }
+    .log-table tbody tr {
+      border-bottom: 1px solid rgba(48,54,61,.5);
+      transition: background .07s;
+    }
+    .log-table tbody tr:hover { background: rgba(56,139,253,.05) !important; }
+
+    .log-table tr[data-level="WARN"]   { background: rgba(210,153,34,.04); }
+    .log-table tr[data-level="ERROR"]  { background: rgba(248,81,73,.04); }
+    .log-table tr[data-level="FATAL"],
+    .log-table tr[data-level="SEVERE"] { background: rgba(255,107,114,.06); }
+
+    .col-ln {
+      width: 52px; min-width: 52px; padding: 3px 10px 3px 8px;
+      text-align: right; vertical-align: top;
+      color: var(--text-muted); font-size: 11px;
+      border-right: 1px solid var(--border);
+      user-select: none; white-space: nowrap;
+    }
+    .col-lv {
+      width: 64px; min-width: 64px;
+      padding: 3px 6px; text-align: center; vertical-align: top;
+    }
+    .level-badge {
+      display: inline-block; padding: 0 6px; border-radius: 4px;
+      font-size: 10px; font-weight: 700; letter-spacing: .04em; line-height: 18px;
+    }
+    .lv-trace  { background: rgba(110,118,129,.15); color: var(--trace); }
+    .lv-debug  { background: rgba(57,197,207,.15);  color: var(--debug); }
+    .lv-info   { background: rgba(63,185,80,.15);   color: var(--info);  }
+    .lv-warn   { background: rgba(210,153,34,.2);   color: var(--warn);  }
+    .lv-error  { background: rgba(248,81,73,.18);   color: var(--error); }
+    .lv-fatal   { background: rgba(255,107,114,.2);  color: var(--fatal); }
+    .lv-unknown { background: rgba(125,133,144,.15); color: var(--text-dim); }
+
+    .col-txt {
+      padding: 3px 14px 3px 8px;
+      white-space: pre-wrap; word-break: break-all;
+      vertical-align: top; color: var(--text);
+    }
+    .log-table tr[data-level="WARN"]   .col-txt { color: rgba(230,195,130,.85); }
+    .log-table tr[data-level="ERROR"]  .col-txt { color: rgba(255,165,160,.85); }
+    .log-table tr[data-level="FATAL"]  .col-txt,
+    .log-table tr[data-level="SEVERE"] .col-txt { color: rgba(255,150,150,.9); }
+    .log-table tr.is-stacktrace .col-txt { color: var(--text-dim); font-size: 11px; padding-left: 22px; }
+    .log-table tr.is-stacktrace .col-lv  { opacity: 0; }
+
+    mark.hl { background: rgba(210,153,34,.35); color: inherit; border-radius: 2px; padding: 0 1px; }
+
+    /* Status bar */
+    .statusbar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 5px 14px;
+      background: var(--bg2); border-top: 1px solid var(--border);
+      font-size: 11px; color: var(--text-dim); flex-shrink: 0;
+    }
+    .statusbar .spacer { flex: 1; }
+    .pagination { display: flex; align-items: center; gap: 4px; }
+    .pg-btn {
+      width: 26px; height: 26px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 5px; color: var(--text-dim); cursor: pointer;
+      font-size: 12px; display: flex; align-items: center; justify-content: center;
+      transition: background .1s, color .1s;
+    }
+    .pg-btn:hover:not(:disabled) { background: var(--bg4); color: var(--text); }
+    .pg-btn:disabled { opacity: .35; cursor: default; }
+    .pg-info { min-width: 70px; text-align: center; font-size: 11px; color: var(--text-dim); }
+
+    /* Welcome / empty */
+    .welcome {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px;
+      color: var(--text-dim);
+    }
+    .welcome-icon {
+      width: 68px; height: 68px;
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 18px;
+      display: flex; align-items: center; justify-content: center; font-size: 32px;
+    }
+    .welcome h2 { font-size: 18px; color: var(--text); }
+    .welcome p  { font-size: 13px; max-width: 300px; text-align: center; line-height: 1.7; }
+    .welcome .tip {
+      font-size: 11px; color: var(--text-muted);
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 6px; padding: 8px 14px;
+    }
+    .empty-state {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+    }
+    .empty-state .icon { font-size: 36px; }
+    .empty-state p     { font-size: 14px; color: var(--text-dim); }
+    .empty-state small { font-size: 12px; color: var(--text-muted); }
+
+    .spinner {
+      width: 24px; height: 24px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+    #toasts {
+      position: fixed; bottom: 16px; right: 16px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+    }
+    .toast {
+      padding: 10px 14px;
+      background: var(--bg4); border: 1px solid var(--border);
+      border-radius: 8px; font-size: 12px; color: var(--text);
+      animation: slide-in .2s ease; max-width: 280px;
+      box-shadow: 0 4px 16px rgba(0,0,0,.4);
+    }
+    .toast.error { border-color: rgba(248,81,73,.5); color: var(--error); }
+    @keyframes slide-in {
+      from { opacity:0; transform: translateY(8px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<header class="topbar">
+  <a class="topbar-brand" href="#">
+    <div class="brand-icon" role="img" aria-label="LogViewer">📋</div>
+    LogViewer
+  </a>
+  <div class="topbar-sep"></div>
+  <div class="topbar-breadcrumb" id="breadcrumb">
+    <span>Select an application and log file from the sidebar</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="icon-btn" title="Reload applications" aria-label="Reload applications" onclick="reloadApps()">↺</button>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-tabs" role="tablist">
+      <button id="tab-apps-btn"   role="tab" aria-selected="true"  class="active" onclick="switchTab('apps')">📁 Applications</button>
+      <button id="tab-search-btn" role="tab" aria-selected="false"             onclick="switchTab('search')">🔍 Search</button>
+    </div>
+
+    <!-- Apps panel -->
+    <div id="tab-apps" class="tab-panel active">
+      <div class="apps-filter">
+        <input id="app-filter" type="text" placeholder="Filter apps…" oninput="filterApps(this.value)" />
+      </div>
+      <div class="app-tree" id="app-tree">
+        <div style="padding:24px;display:flex;align-items:center;justify-content:center">
+          <div class="spinner"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search panel -->
+    <div id="tab-search" class="tab-panel">
+      <div class="search-panel">
+        <input id="gs-q"   type="text" placeholder="Search text in all logs…" />
+        <input id="gs-exc" type="text" placeholder="Exception class (e.g. NullPointerException)" />
+        <select id="gs-level">
+          <option value="">Any log level</option>
+          <option value="DEBUG">DEBUG+</option>
+          <option value="INFO">INFO+</option>
+          <option value="WARN">WARN+</option>
+          <option value="ERROR">ERROR+</option>
+        </select>
+        <button class="btn-search" onclick="globalSearch()">Search all logs</button>
+      </div>
+      <div class="search-results" id="search-results">
+        <div class="sr-empty">Enter a search term to scan all applications.</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div class="filterbar" id="filterbar" style="display:none">
+      <span class="filter-label">Level:</span>
+      <select id="f-level">
+        <option value="">All</option>
+        <option value="TRACE">TRACE+</option>
+        <option value="DEBUG">DEBUG+</option>
+        <option value="INFO">INFO+</option>
+        <option value="WARN">WARN+</option>
+        <option value="ERROR">ERROR+</option>
+        <option value="FATAL">FATAL+</option>
+      </select>
+      <div class="fb-sep"></div>
+      <input type="text" id="f-search"    placeholder="🔍 Search in log…" />
+      <input type="text" id="f-exception" placeholder="Exception class…" />
+      <div class="fb-sep"></div>
+      <button class="btn btn-apply" onclick="applyFilters()">Apply</button>
+      <button class="btn btn-clear" onclick="clearFilters()">Clear</button>
+    </div>
+
+    <div class="exc-strip" id="exc-strip" style="display:none">
+      <span class="exc-label">Exceptions:</span>
+      <span id="exc-pills"></span>
+    </div>
+
+    <div class="stats-bar" id="stats-bar" style="display:none">
+      <span class="stat">Matched: <b id="s-matched">0</b></span>
+      <span class="stat"><span class="level-stat ls-debug">DEBUG</span> <b id="s-debug">0</b></span>
+      <span class="stat"><span class="level-stat ls-info">INFO</span>   <b id="s-info">0</b></span>
+      <span class="stat"><span class="level-stat ls-warn">WARN</span>   <b id="s-warn">0</b></span>
+      <span class="stat"><span class="level-stat ls-error">ERROR</span> <b id="s-error">0</b></span>
+    </div>
+
+    <div class="log-content" id="log-content">
+      <div class="welcome">
+        <div class="welcome-icon">📋</div>
+        <h2>Java Log Viewer</h2>
+        <p>Select any application and log file from the sidebar to start viewing and analyzing logs.</p>
+        <div class="tip">💡 Use the <strong>Search</strong> tab to find entries across all apps at once.</div>
+      </div>
+    </div>
+
+    <div class="statusbar" id="statusbar" style="display:none">
+      <span id="st-file" style="color:var(--text-dim)"></span>
+      <span class="spacer"></span>
+      <div class="pagination">
+        <button class="pg-btn" id="pg-first" onclick="goPage(1)"                title="First">«</button>
+        <button class="pg-btn" id="pg-prev"  onclick="goPage(state.page-1)"    title="Prev">‹</button>
+        <span class="pg-info" id="pg-info">1 / 1</span>
+        <button class="pg-btn" id="pg-next"  onclick="goPage(state.page+1)"    title="Next">›</button>
+        <button class="pg-btn" id="pg-last"  onclick="goPage(state.totalPages)" title="Last">»</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+'use strict';
+
+const state = {
+  app: null, file: null,
+  level: '', search: '', exception: '',
+  page: 1, perPage: 500, totalPages: 1,
+};
+
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function hl(text, term) {
+  if (!term) return esc(text);
+  return esc(text).replace(
+    new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+    m => '<mark class="hl">' + m + '</mark>'
+  );
+}
+
+function fmtSize(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+function toast(msg, type) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(function() { t.remove(); }, 4000);
+}
+
+async function api(url) {
+  const r = await fetch(url);
+  if (!r.ok) {
+    const b = await r.json().catch(function() { return { error: r.statusText }; });
+    throw new Error(b.error || r.statusText);
+  }
+  return r.json();
+}
+
+function levelBadge(level) {
+  const cls = {
+    TRACE:'lv-trace', DEBUG:'lv-debug', INFO:'lv-info',
+    WARN:'lv-warn', ERROR:'lv-error', FATAL:'lv-fatal', SEVERE:'lv-fatal'
+  };
+  return '<span class="level-badge ' + (cls[level] || 'lv-unknown') + '">' + level + '</span>';
+}
+
+function switchTab(name) {
+  ['apps','search'].forEach(function(t) {
+    document.getElementById('tab-' + t).classList.toggle('active', t === name);
+    const btn = document.getElementById('tab-' + t + '-btn');
+    btn.classList.toggle('active', t === name);
+    btn.setAttribute('aria-selected', t === name ? 'true' : 'false');
+  });
+}
+
+var _appsData = [];
+
+async function loadApps() {
+  const tree = document.getElementById('app-tree');
+  try {
+    _appsData = await api('/api/apps');
+    renderAppTree(_appsData);
+  } catch(e) {
+    tree.innerHTML = '<div style="padding:14px;color:var(--error);font-size:12px">' + esc(e.message) + '</div>';
+  }
+}
+
+function renderAppTree(apps) {
+  const tree = document.getElementById('app-tree');
+  if (!apps.length) {
+    tree.innerHTML = '<div style="padding:20px 14px;color:var(--text-muted);font-size:12px;line-height:1.8">No applications found.<br>Add log directories to the <code>logs/</code> folder.</div>';
+    return;
+  }
+  tree.innerHTML = apps.map(function(a) {
+    return '<div class="app-group" id="ag-' + CSS.escape(a.name) + '">' +
+      '<div class="app-header" onclick="toggleApp(\'' + esc(a.name) + '\',this)">' +
+        '<span class="app-icon">📦</span>' +
+        '<span class="app-label">' + esc(a.name) + '</span>' +
+        '<span class="app-count">' + a.log_count + '</span>' +
+        '<span class="chevron">▶</span>' +
+      '</div>' +
+      '<div class="file-list" id="fl-' + CSS.escape(a.name) + '">' +
+        '<div style="padding:8px 14px 8px 30px;color:var(--text-muted);font-size:11px">Loading…</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function filterApps(q) {
+  const lq = q.toLowerCase();
+  _appsData.forEach(function(a) {
+    const el = document.getElementById('ag-' + CSS.escape(a.name));
+    if (el) el.style.display = a.name.toLowerCase().includes(lq) ? '' : 'none';
+  });
+}
+
+async function reloadApps() {
+  document.getElementById('app-tree').innerHTML =
+    '<div style="padding:24px;display:flex;align-items:center;justify-content:center"><div class="spinner"></div></div>';
+  await loadApps();
+}
+
+async function toggleApp(name, headerEl) {
+  const fl = document.getElementById('fl-' + CSS.escape(name));
+  const isOpen = fl.classList.contains('open');
+
+  document.querySelectorAll('.file-list.open').forEach(function(el) {
+    if (el.id !== fl.id) {
+      el.classList.remove('open');
+      el.previousElementSibling.classList.remove('open');
+    }
+  });
+
+  if (isOpen) { fl.classList.remove('open'); headerEl.classList.remove('open'); return; }
+  fl.classList.add('open'); headerEl.classList.add('open');
+  if (fl.dataset.loaded) return;
+  fl.dataset.loaded = '1';
+
+  try {
+    const files = await api('/api/apps/' + encodeURIComponent(name) + '/logs');
+    if (!files.length) {
+      fl.innerHTML = '<div style="padding:6px 14px 6px 30px;color:var(--text-muted);font-size:11px">No log files found.</div>';
+      return;
+    }
+    fl.innerHTML = files.map(function(f) {
+      return '<div class="file-item" id="fi-' + CSS.escape(name) + '-' + CSS.escape(f.name) + '"' +
+        ' onclick="openFile(\'' + esc(name) + '\',\'' + esc(f.name) + '\',this)">' +
+        '<span class="file-icon">📄</span>' +
+        '<span class="file-name" title="' + esc(f.name) + '">' + esc(f.name) + '</span>' +
+        '<span class="file-size">' + fmtSize(f.size) + '</span>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    fl.innerHTML = '<div style="padding:6px 14px 6px 30px;color:var(--error);font-size:11px">' + esc(e.message) + '</div>';
+  }
+}
+
+async function openFile(appName, fileName, entryEl) {
+  document.querySelectorAll('.file-item.active').forEach(function(e) { e.classList.remove('active'); });
+  if (entryEl) entryEl.classList.add('active');
+
+  state.app = appName; state.file = fileName;
+  state.page = 1; state.exception = '';
+  state.level = document.getElementById('f-level').value;
+  state.search = document.getElementById('f-search').value;
+
+  document.getElementById('filterbar').style.display = '';
+  document.getElementById('breadcrumb').innerHTML =
+    '<span class="crumb">' + esc(appName) + '</span>' +
+    '<span class="sep"> / </span>' +
+    '<span class="crumb">' + esc(fileName) + '</span>';
+
+  await fetchAndRender();
+}
+
+async function fetchAndRender() {
+  const content = document.getElementById('log-content');
+  content.innerHTML = '<div style="flex:1;height:100%;display:flex;align-items:center;justify-content:center"><div class="spinner"></div></div>';
+
+  const params = new URLSearchParams({ page: state.page, per_page: state.perPage });
+  if (state.level)     params.set('level', state.level);
+  if (state.search)    params.set('search', state.search);
+  if (state.exception) params.set('exception', state.exception);
+
+  const url = '/api/apps/' + encodeURIComponent(state.app) + '/logs/' + encodeURIComponent(state.file) + '?' + params;
+  try {
+    const data = await api(url);
+    state.page = data.page;
+    state.totalPages = data.total_pages;
+    renderLines(data);
+    renderExcStrip(data.exceptions);
+    renderStats(data);
+    renderStatusBar(data);
+  } catch(e) {
+    content.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>' + esc(e.message) + '</p></div>';
+    toast(e.message, 'error');
+  }
+}
+
+function renderLines(data) {
+  const content = document.getElementById('log-content');
+  if (!data.lines.length) {
+    content.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>No matching lines</p><small>Try relaxing your filters</small></div>';
+    return;
+  }
+  const rows = data.lines.map(function(l) {
+    return '<tr data-level="' + l.level + '" class="' + (l.is_stacktrace ? 'is-stacktrace' : '') + '">' +
+      '<td class="col-ln">' + l.lineno + '</td>' +
+      '<td class="col-lv">' + (l.is_stacktrace ? '' : levelBadge(l.level)) + '</td>' +
+      '<td class="col-txt">' + hl(l.text, state.search) + '</td>' +
+    '</tr>';
+  }).join('');
+  content.innerHTML = '<table class="log-table"><tbody>' + rows + '</tbody></table>';
+}
+
+function renderExcStrip(exceptions) {
+  const strip = document.getElementById('exc-strip');
+  const pills = document.getElementById('exc-pills');
+  if (!exceptions || !exceptions.length) { strip.style.display = 'none'; return; }
+  strip.style.display = '';
+  pills.innerHTML = exceptions.map(function(e) {
+    const short = e.split('.').pop();
+    return '<span class="exc-pill' + (state.exception === e ? ' active' : '') + '"' +
+      ' onclick="filterByException(\'' + esc(e) + '\')" title="' + esc(e) + '">' + esc(short) + '</span>';
+  }).join('');
+}
+
+function renderStats(data) {
+  document.getElementById('stats-bar').style.display = '';
+  document.getElementById('s-matched').textContent = data.total_lines.toLocaleString();
+  const counts = { TRACE:0, DEBUG:0, INFO:0, WARN:0, ERROR:0, FATAL:0, SEVERE:0 };
+  data.lines.forEach(function(l) { if (l.level in counts) counts[l.level]++; });
+  document.getElementById('s-debug').textContent = counts.TRACE + counts.DEBUG;
+  document.getElementById('s-info').textContent  = counts.INFO;
+  document.getElementById('s-warn').textContent  = counts.WARN;
+  document.getElementById('s-error').textContent = counts.ERROR + counts.FATAL + counts.SEVERE;
+}
+
+function renderStatusBar(data) {
+  document.getElementById('statusbar').style.display = '';
+  document.getElementById('st-file').textContent = state.file;
+  document.getElementById('pg-info').textContent = data.page + ' / ' + data.total_pages;
+  document.getElementById('pg-first').disabled = data.page <= 1;
+  document.getElementById('pg-prev').disabled  = data.page <= 1;
+  document.getElementById('pg-next').disabled  = data.page >= data.total_pages;
+  document.getElementById('pg-last').disabled  = data.page >= data.total_pages;
+}
+
+function goPage(p) {
+  if (p < 1 || p > state.totalPages) return;
+  state.page = p;
+  fetchAndRender();
+  document.getElementById('log-content').scrollTop = 0;
+}
+
+function applyFilters() {
+  if (!state.app || !state.file) { toast('Open a log file first.'); return; }
+  state.level     = document.getElementById('f-level').value;
+  state.search    = document.getElementById('f-search').value.trim();
+  state.exception = document.getElementById('f-exception').value.trim();
+  state.page = 1;
+  fetchAndRender();
+}
+
+function clearFilters() {
+  document.getElementById('f-level').value = '';
+  document.getElementById('f-search').value = '';
+  document.getElementById('f-exception').value = '';
+  state.level = ''; state.search = ''; state.exception = '';
+  state.page = 1;
+  if (state.app && state.file) fetchAndRender();
+}
+
+function filterByException(exc) {
+  state.exception = (state.exception === exc) ? '' : exc;
+  document.getElementById('f-exception').value = state.exception;
+  state.page = 1;
+  fetchAndRender();
+}
+
+['f-search','f-exception'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') applyFilters();
+  });
+});
+
+var PREVIEW_MAX_LENGTH = 120;
+
+async function globalSearch() {
+  const q   = document.getElementById('gs-q').value.trim();
+  const exc = document.getElementById('gs-exc').value.trim();
+  const lvl = document.getElementById('gs-level').value;
+  if (!q && !exc) { toast('Enter a search term or exception class.'); return; }
+
+  const out = document.getElementById('search-results');
+  out.innerHTML = '<div style="padding:20px;display:flex;align-items:center;justify-content:center"><div class="spinner"></div></div>';
+
+  const p = new URLSearchParams();
+  if (q)   p.set('q', q);
+  if (exc) p.set('exception', exc);
+  if (lvl) p.set('level', lvl);
+
+  try {
+    const data = await api('/api/search?' + p);
+    if (!data.results.length) { out.innerHTML = '<div class="sr-empty">No matches found.</div>'; return; }
+    out.innerHTML =
+      '<div class="sr-summary"><b>' + data.total.toLocaleString() + '</b> line(s) in <b>' + data.results.length + '</b> file(s)</div>' +
+      data.results.map(function(r) {
+        const preview = r.sample_lines[0] ? r.sample_lines[0].text.trim().substring(0, PREVIEW_MAX_LENGTH) : '';
+        return '<div class="sr-item" onclick="jumpToSearch(\'' + esc(r.app) + '\',\'' + esc(r.file) + '\',\'' + esc(q) + '\')">' +
+          '<div class="sr-app">📦 ' + esc(r.app) + '</div>' +
+          '<div class="sr-file">📄 ' + esc(r.file) + '</div>' +
+          '<span class="sr-hits">' + r.match_count.toLocaleString() + ' match(es)</span>' +
+          (preview ? '<div class="sr-preview">' + esc(preview) + '</div>' : '') +
+        '</div>';
+      }).join('');
+  } catch(e) {
+    out.innerHTML = '<div class="sr-empty" style="color:var(--error)">' + esc(e.message) + '</div>';
+    toast(e.message, 'error');
+  }
+}
+
+async function jumpToSearch(appName, fileName, searchTerm) {
+  switchTab('apps');
+  document.getElementById('f-search').value = searchTerm;
+  state.search = searchTerm;
+  const fl  = document.getElementById('fl-' + CSS.escape(appName));
+  const hdr = document.querySelector('#ag-' + CSS.escape(appName) + ' .app-header');
+  if (hdr && fl && !fl.classList.contains('open')) await toggleApp(appName, hdr);
+  const entry = document.getElementById('fi-' + CSS.escape(appName) + '-' + CSS.escape(fileName));
+  await openFile(appName, fileName, entry);
+}
+
+['gs-q','gs-exc'].forEach(function(id) {
+  document.getElementById(id).addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') globalSearch();
+  });
+});
+
+loadApps();
+</script>
+</body>
+</html>

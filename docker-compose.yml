@@ -1,0 +1,16 @@
+services:
+  log-viewer:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount your local logs directory into the container.
+      # Create a ./logs folder next to this file and place your
+      # <app-name>/<timestamp>.log files inside it.
+      - ./logs:/app/logs:ro
+    environment:
+      # Set LOG_DIR if you prefer a different path inside the container
+      - LOG_DIR=/app/logs
+      # Uncomment to enable Flask debug mode (development only)
+      # - FLASK_DEBUG=1
+    restart: unless-stopped

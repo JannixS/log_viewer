@@ -1,0 +1,32 @@
+2024-01-15 08:00:01.123 [main] INFO  c.example.OrderServiceApplication - Starting OrderServiceApplication v2.3.1
+2024-01-15 08:00:01.456 [main] INFO  org.springframework.boot.SpringApplication - No active profile set, falling back to 1 default profile: "default"
+2024-01-15 08:00:02.891 [main] INFO  c.example.config.DataSourceConfig - Connecting to database: jdbc:postgresql://db:5432/orders
+2024-01-15 08:00:03.200 [main] INFO  c.example.OrderServiceApplication - Started OrderServiceApplication in 2.078 seconds
+2024-01-15 08:01:14.002 [http-nio-8080-exec-1] INFO  c.example.controller.OrderController - POST /api/orders - Creating new order for user: user_4821
+2024-01-15 08:01:14.233 [http-nio-8080-exec-1] DEBUG c.example.service.OrderService - Validating order items: [ITEM-001, ITEM-002]
+2024-01-15 08:01:14.501 [http-nio-8080-exec-1] INFO  c.example.service.OrderService - Order created successfully: ORD-00129
+2024-01-15 08:03:45.100 [http-nio-8080-exec-3] WARN  c.example.service.InventoryClient - Inventory service responded slowly: 2340ms
+2024-01-15 08:05:00.000 [scheduler-1] INFO  c.example.scheduler.OrderScheduler - Running order cleanup job
+2024-01-15 08:05:00.841 [scheduler-1] INFO  c.example.scheduler.OrderScheduler - Cleaned up 7 expired orders
+2024-01-15 08:12:30.500 [http-nio-8080-exec-5] ERROR c.example.controller.OrderController - Failed to process order ORD-00130
+java.lang.NullPointerException: Cannot invoke "String.length()" because "str" is null
+	at c.example.service.OrderService.validatePayload(OrderService.java:142)
+	at c.example.service.OrderService.createOrder(OrderService.java:87)
+	at c.example.controller.OrderController.createOrder(OrderController.java:55)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+2024-01-15 08:12:30.503 [http-nio-8080-exec-5] WARN  c.example.controller.OrderController - Returning 500 to client for request: POST /api/orders
+2024-01-15 08:18:44.900 [http-nio-8080-exec-7] INFO  c.example.controller.OrderController - GET /api/orders/ORD-00128 - Fetching order details
+2024-01-15 08:18:45.050 [http-nio-8080-exec-7] INFO  c.example.controller.OrderController - Successfully returned order ORD-00128
+2024-01-15 08:25:10.000 [http-nio-8080-exec-2] ERROR c.example.service.PaymentGatewayClient - Payment gateway timeout after 30000ms
+java.net.SocketTimeoutException: Read timed out
+	at java.net.SocketInputStream.socketRead0(Native Method)
+	at java.net.SocketInputStream.socketRead(SocketInputStream.java:116)
+	at java.net.SocketInputStream.read(SocketInputStream.java:171)
+	at com.example.http.HttpClient.execute(HttpClient.java:234)
+Caused by: java.io.IOException: Connection reset by peer
+	at sun.nio.ch.FileDispatcherImpl.read0(Native Method)
+	at sun.nio.ch.SocketDispatcher.read(SocketDispatcher.java:39)
+2024-01-15 08:25:10.012 [http-nio-8080-exec-2] WARN  c.example.service.OrderService - Retrying payment for ORD-00131 (attempt 1/3)
+2024-01-15 08:25:40.120 [http-nio-8080-exec-2] WARN  c.example.service.OrderService - Retrying payment for ORD-00131 (attempt 2/3)
+2024-01-15 08:26:10.234 [http-nio-8080-exec-2] ERROR c.example.service.OrderService - Payment failed after 3 retries for ORD-00131
+2024-01-15 08:30:00.000 [scheduler-1] INFO  c.example.scheduler.MetricsScheduler - Orders processed today: 47, failed: 2
