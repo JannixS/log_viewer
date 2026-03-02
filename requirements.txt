@@ -1,1 +1,5 @@
 flask>=3.0,<4.0
+
+# Windows service / standalone exe (needed only when building on Windows)
+# pywin32>=310; sys_platform == "win32"
+# pyinstaller>=6.0; sys_platform == "win32"

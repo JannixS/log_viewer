@@ -14,3 +14,9 @@ tests/
 htmlcov/
 .idea/
 .vscode/
+# Windows service / build files
+service.py
+*.spec
+*.bat
+dist/
+build/

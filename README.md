@@ -36,6 +36,59 @@ Open <http://localhost:5000> in your browser.
 
 ---
 
+## Running as a Windows service (no Python, no Docker required)
+
+Build a standalone `log-viewer.exe` on a Windows machine using PyInstaller.
+The resulting file bundles Python, Flask, and all dependencies — nothing needs
+to be installed on the target machine.
+
+### Step 1 — Build the exe (one-time, on any Windows PC with Python)
+
+```bat
+build-windows.bat
+```
+
+This installs PyInstaller + pywin32, runs the build, and produces
+`dist\log-viewer.exe` (~30 MB).
+
+### Step 2 — Deploy to target machine
+
+Copy the following files to any folder (e.g. `C:\LogViewer\`):
+
+```
+dist\log-viewer.exe
+install-service.bat
+uninstall-service.bat
+logs\            ← your <app-name>\<timestamp>.log files go here
+```
+
+### Step 3 — Install and start the service (run as Administrator)
+
+```bat
+install-service.bat
+```
+
+This registers `LogViewerService` as a Windows service that **starts
+automatically with Windows** and serves the UI at <http://localhost:5000>.
+
+To use a custom log directory:
+
+```bat
+install-service.bat "D:\my-logs"
+```
+
+### Manage the service
+
+| Action | Command (as Administrator) |
+|---|---|
+| Install & start | `install-service.bat` |
+| Stop & remove | `uninstall-service.bat` |
+| Start manually | `log-viewer.exe start` |
+| Stop manually | `log-viewer.exe stop` |
+| Test in foreground | `log-viewer.exe debug` |
+
+---
+
 ## Running locally (requires Python 3.10+)
 
 ```bash

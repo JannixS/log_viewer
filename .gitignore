@@ -30,3 +30,6 @@ htmlcov/
 
 # Flask
 instance/
+
+# PyInstaller
+*.manifest
