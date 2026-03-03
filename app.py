@@ -5,14 +5,53 @@ Java Log Viewer - Flask web application for browsing and analyzing Java applicat
 import os
 import re
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from flask import Flask, render_template, jsonify, request, abort
 
-app = Flask(__name__)
+_log = logging.getLogger(__name__)
 
-# Base directory for log files; can be overridden via LOG_DIR environment variable.
-LOG_DIR = Path(os.environ.get("LOG_DIR", os.path.join(os.path.dirname(__file__), "logs")))
+# ---------------------------------------------------------------------------
+# Configuration helpers
+# ---------------------------------------------------------------------------
+
+# Config directory: next to the exe/script (or overridden via CONFIG_DIR env var)
+_CONFIG_DIR = Path(os.environ.get("CONFIG_DIR", os.path.dirname(os.path.abspath(__file__))))
+_CONFIG_FILE = _CONFIG_DIR / "config.json"
+
+
+def _load_config() -> dict:
+    """Load persisted configuration from config.json, returning {} on any error."""
+    if _CONFIG_FILE.exists():
+        try:
+            with _CONFIG_FILE.open("r", encoding="utf-8") as fh:
+                return json.load(fh)
+        except json.JSONDecodeError:
+            _log.warning("config.json is malformed and will be ignored: %s", _CONFIG_FILE)
+        except OSError as exc:
+            _log.warning("Could not read config.json: %s", exc)
+    return {}
+
+
+def _save_config(cfg: dict) -> None:
+    """Persist configuration to config.json, raising OSError on failure."""
+    _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with _CONFIG_FILE.open("w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, indent=2)
+
+
+# Determine effective LOG_DIR:
+#   1. Persisted config.json value (survives restarts)
+#   2. LOG_DIR environment variable  (set by service installer / Docker)
+#   3. ./logs next to this file      (dev-mode default)
+_cfg = _load_config()
+_env_log_dir = os.environ.get("LOG_DIR")
+_default_log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+LOG_DIR = Path(_cfg.get("log_dir") or _env_log_dir or _default_log_dir)
+
+_template_dir = os.environ.get("FLASK_TEMPLATE_DIR")
+app = Flask(__name__, **({"template_folder": _template_dir} if _template_dir else {}))
 
 # ---------------------------------------------------------------------------
 # Log-level detection
@@ -207,6 +246,36 @@ def api_log_content(app_name: str, filename: str):
 
     data = read_log(app_name, filename, level, search, exception, page, per_page)
     return jsonify(data)
+
+
+@app.route("/api/config", methods=["GET"])
+def api_get_config():
+    """Return the current runtime configuration."""
+    return jsonify({"log_dir": str(LOG_DIR), "exists": LOG_DIR.exists()})
+
+
+@app.route("/api/config", methods=["POST"])
+def api_set_config():
+    """
+    Update the log directory at runtime and persist it to config.json.
+
+    Request body (JSON): {"log_dir": "/path/to/logs"}
+    """
+    global LOG_DIR  # noqa: PLW0603
+    data = request.get_json(silent=True)
+    if not data or "log_dir" not in data:
+        abort(400, description="Missing 'log_dir' in request body.")
+    new_dir = Path(data["log_dir"])
+    LOG_DIR = new_dir
+    cfg = _load_config()
+    cfg["log_dir"] = str(new_dir)
+    persisted = True
+    try:
+        _save_config(cfg)
+    except OSError as exc:
+        _log.warning("Could not persist config.json: %s", exc)
+        persisted = False
+    return jsonify({"log_dir": str(LOG_DIR), "exists": new_dir.exists(), "persisted": persisted})
 
 
 @app.route("/api/search")

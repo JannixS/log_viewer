@@ -33,3 +33,6 @@ instance/
 
 # PyInstaller
 *.manifest
+
+# Runtime config (generated at runtime, not committed)
+config.json
