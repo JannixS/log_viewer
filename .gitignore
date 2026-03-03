@@ -33,3 +33,9 @@ instance/
 
 # PyInstaller
 *.manifest
+
+# Runtime config (generated at runtime, not committed)
+config.json
+
+# Log files (user data, not part of the repo)
+logs/

@@ -37,6 +37,8 @@ os.environ.setdefault("FLASK_TEMPLATE_DIR", os.path.join(_BASE_DIR, "templates")
 # Default log directory: "logs" folder next to the exe (or script)
 _EXE_DIR = os.path.dirname(sys.executable if getattr(sys, "frozen", False) else os.path.abspath(__file__))
 os.environ.setdefault("LOG_DIR", os.path.join(_EXE_DIR, "logs"))
+# Config file lives next to the exe so settings persist across service restarts
+os.environ.setdefault("CONFIG_DIR", _EXE_DIR)
 
 
 # ---------------------------------------------------------------------------

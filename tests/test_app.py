@@ -43,13 +43,19 @@ def client(tmp_path):
     )
 
     original = log_app.LOG_DIR
+    original_cfg_dir = log_app._CONFIG_DIR
+    original_cfg_file = log_app._CONFIG_FILE
     log_app.LOG_DIR = tmp_path
+    log_app._CONFIG_DIR = tmp_path
+    log_app._CONFIG_FILE = tmp_path / "config.json"
     log_app.app.config["TESTING"] = True
 
     with log_app.app.test_client() as c:
         yield c
 
     log_app.LOG_DIR = original
+    log_app._CONFIG_DIR = original_cfg_dir
+    log_app._CONFIG_FILE = original_cfg_file
 
 
 # ---------------------------------------------------------------------------
@@ -202,8 +208,44 @@ class TestGlobalSearch:
 
 
 # ---------------------------------------------------------------------------
-# detect_level helper
+# /api/config
 # ---------------------------------------------------------------------------
+
+class TestConfig:
+    def test_get_config_returns_log_dir(self, client):
+        r = client.get("/api/config")
+        assert r.status_code == 200
+        data = r.get_json()
+        assert "log_dir" in data
+        assert "exists" in data
+
+    def test_post_config_updates_log_dir(self, client, tmp_path):
+        new_dir = tmp_path / "new-logs"
+        new_dir.mkdir()
+        r = client.post("/api/config", json={"log_dir": str(new_dir)})
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["log_dir"] == str(new_dir)
+        assert data["exists"] is True
+        assert log_app.LOG_DIR == new_dir
+
+    def test_post_config_nonexistent_dir(self, client, tmp_path):
+        missing = tmp_path / "does-not-exist"
+        r = client.post("/api/config", json={"log_dir": str(missing)})
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data["exists"] is False
+
+    def test_post_config_missing_body(self, client):
+        r = client.post("/api/config", json={})
+        assert r.status_code == 400
+
+    def test_post_config_no_json(self, client):
+        r = client.post("/api/config", data="not json", content_type="text/plain")
+        assert r.status_code == 400
+
+
+
 
 class TestDetectLevel:
     def test_info(self):
